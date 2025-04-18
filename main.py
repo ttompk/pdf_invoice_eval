@@ -12,4 +12,7 @@ def sweep_to_in_process(base_dir):
 for filename in working_dir:
     for file_name in os.listdir(working_dir):
         # Extract text from the PDF
-        sys_pdf.extract_text_from_pdf(file_name)
+        text = sys_pdf.extract_text_from_pdf(file_name)
+
+        # Call the LLM for extraction
+        

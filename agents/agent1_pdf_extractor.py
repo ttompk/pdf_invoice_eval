@@ -50,7 +50,7 @@ class Agent1_extraction:
     Use openai api to extract data from a PDF file and format into a table.
     '''
 
-    def __init__(self, working_dir, csv_dir):
+    def __init__(self, working_dir, csv_dir, update_overview, update_product):
         self.working_dir = working_dir
         self.csv_dir = csv_dir
         self.company_name = ""
@@ -59,6 +59,8 @@ class Agent1_extraction:
         self.table_dict = {}
         self.extracted_dict = {}
         self.file_counter = 0
+        self.update_overview = update_overview
+        self.update_product = update_product
         
         # init methods
         load_dotenv(override=True) # Load environment variables from the .env file
@@ -96,13 +98,14 @@ class Agent1_extraction:
         
         self.file_counter += 1
 
- 
-    
-
         
     def build_prompts(self):
         # Prompt for the model to identify relevant data for the OVERVIEW table
         self.overview_prompt = f"""
+        You are an expert in extracting data from invoices. 
+        You were paid by a company and received an invoice. 
+        Your job is to record the overall details about the invoice, not about the individual products.
+        {self.update_overview}
         Extract the following details from the text:
         - Invoice Date
         - Invoice Number
@@ -114,6 +117,10 @@ class Agent1_extraction:
 
         # Prompt for the model to identify relevant data for the PRODUCTS table
         self.product_prompt = f"""
+        You are an expert in extracting data from invoices. 
+        The text comes from a PDF invoice so formatting may be inconsistent.
+        Your job is to record the details about the products in the invoice and are not interested in the overall invoice details.
+        {self.update_product}
         Extract the following details from the text:
         - Invoice Number
         - Product Name
