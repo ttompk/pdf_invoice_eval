@@ -17,11 +17,11 @@ def sys_log_entry(routine, log_value):
 
 
 def move_file(current_dir, target_dir, file_name):
-        '''
-        Move pdf file to another directory
-        '''
-        #shutil.copy2(os.path.join(current_dir, file_name), target_dir)
-        shutil.move(os.path.join(current_dir, file_name), target_dir)
+    '''
+    Move pdf file to another directory
+    '''
+    #shutil.copy2(os.path.join(current_dir, file_name), target_dir)
+    shutil.move(os.path.join(current_dir, file_name), target_dir)
 
 
 def to_working_dir(source_dir, target_dir):
