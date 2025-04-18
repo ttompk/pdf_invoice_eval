@@ -29,14 +29,8 @@ Build an AI multi-agent system that:
 - Agent 3: After all the PDF files have been ran through and the data insrted into the database, Agent 4 will review the newly entered data (and those PDF files it could not extract), and will write a brief report on the outcome. This report should list any PDF fils that Agent 1 could not extract data from, any PDF ivoice data which was extracted and enterded into the database, and if there were any differences between the extracted invoice values and the expected values. If there are differences, Agent 3 will provide an explanation for each issue which can be copied by the user to send via email to the apprioriate service provider. This explanation should describe the invoice and discrepancy and request a correction to the invoice amount. 
 
 
-## Workflow Overview
 
-7. Using extracted data, the LLM searches existing servicer contracts, previous payments in the database, and other relevant information to the project to determine whether the new values match expected values.
-8. The agent findings are then logged and a report is generated for the user. 
-9. repeate steps 3 to 8 until all PDFs have been evaluated
-
-
-### Workflow Detail
+## Workflow Detail
 1. User manually saves an invoice PDF to a "to_be_extracted" directory.
 2. Every night at 12am a bash file is runs a chron job. The bash file moves the files in the directory holding the PDF files to an "in_process" directory. Afterwards it runs a python file which contains the agent program. The agent program is built using the autogen framework. There is a planner agent that controls execution of the following agents. 
 3. Agent 1 is named "pdf_extractor" and is called to open a PDF file from the "in_process" directory, read the contents, and populate a table or tables with the invoice data.
