@@ -1,12 +1,14 @@
 import os
 import sys_pdf
 import agents.agent1_table_extractor as a1
+from autogen_ext.models.openai import AzureOpenAIChatCompletionClient, OpenAIChatCompletionClient
+
 
 # The directories
 base_dir = "pdf_inbox"  # where the user has stored the PDF invoices.
 working_dir = "in_process"  # where the program moves the files while they are being processed.
 completed_dir = "processed_invoices"  # where the program moves the files if they have been successfullly processed.
-failed_dir = "failed_extraction"  # where the program moves the files if they have failed to be processed.
+failed_dir = "failed_invoices"  # where the program moves the files if they have failed to be processed.
 
 def sweep_to_in_process(base_dir):
     ''' This function moves all PDF files from the base directory to the in_process directory. '''
