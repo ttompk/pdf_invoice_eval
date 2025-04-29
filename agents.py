@@ -58,7 +58,14 @@ table_agent = AssistantAgent(
     name="table creator",
     model_client=client,
     description="A worker that extracts values from text to build tables.",
-    system_message=f"You are an expert in extracting structured data from text. You must create two tables, one named overview and the other named products. Here is information about the overview table: {build_overview_prompt} and here is the informaiton on products table: {build_products_prompt}"
+    system_message=f"""
+    You are an expert in extracting structured data from text. 
+    You must create two tables, one named overview and the other named products.
+    Here is information about the overview table: {build_overview_prompt} and here is the informaiton on products table: {build_products_prompt}.
+    These tables will be submitted to the table reviewer agent for validation.
+    If you are unable to extract the data from the text, return 'FAILED' along with a one sentence description of the failure reason.
+    You will repeat the process of data extraction for each file in the "in_process" directory.
+    """
 )
 
 reviewer_agent = AssistantAgent(
@@ -75,3 +82,37 @@ reviewer_agent = AssistantAgent(
     If the table creator agent is unable to produce a correct table after three attempts, return 'FAILED' along with a one sentence description of the failure reason. 
     """)
 
+database_agent = AssistantAgent(
+    name= "database updater",
+    model_client=client,
+    description="An agent that updates the database with the tabulized data.",
+    system_message=f"""
+    You are an expert in updating databases with tabulized data.
+    You must update the database table overviews and products with the tabulized data from the table creator agent if the data is deemed accurate by the table reviewer agent.
+    If the data is deemed inaccurate by the table reviewer agent, you must not update the database.
+    If the data is deemed failed by the table reviewer agent, you must not update the database.
+    You must return a JSON object with the following keys: overview_updated and products_updated. Each key should be a boolean value indicating whether the respective table was updated in the database.
+    If there is a failure in updating the database, rollback the update and return a JSON object with the following keys: overview_updated, products_updated, and failure_reason. Each key should be a boolean value indicating whether the respective table was updated in the database and a string describing the failure reason.
+    """)
+
+summary_agent = AssistantAgent(
+    name="summary agent",
+    model_client=client,
+    description="An agent that summarizes the results of the workflow.",
+    system_message=f"""
+    You are an expert in summarizing the results of workflows.
+    You must summarize the results of the workflow based on the feedback from the table reviewer agent and the database updater agent.
+    The agents will repeat the process of data extraction, review, and updating for each file in the "in_process" directory. 
+    If the data is deemed accurate by the table reviewer agent and updated in the database by the database updater agent, return 'SUCCESS' along with a summary of the data that was updated in the database.
+    If the data is deemed inaccurate by the table reviewer agent or not updated in the database by the database updater agent, return 'FAILURE' along with a summary of the feedback from the table reviewer agent and the database updater agent.
+    After all the files in the "in_process" directory have been processed, you can respond with TERMINATE.
+    """)
+
+async def run_agents():
+    termination = TextMentionTermination("TERMINATE")
+    group_chat = MagenticOneGroupChat(
+        [table_agent, reviewer_agent, database_agent, summary_agent],
+        termination_condition=termination,
+        model_client=client,
+    )
+    await Console(group_chat.run_stream(task="Extract table data from text and insert into a database."))
