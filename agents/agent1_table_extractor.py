@@ -17,7 +17,6 @@ import sys_pdf
 import asyncio
 import os
 
-import azure.identity
 from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import TextMessage
 from autogen_core import CancellationToken
