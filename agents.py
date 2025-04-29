@@ -54,12 +54,24 @@ def build_products_prompt(raw_text: str, update_products= ""):
     return product_prompt
     
 
-local_agent = AssistantAgent(
+table_agent = AssistantAgent(
     name="table creator",
     model_client=client,
     description="A worker that extracts values from text to build tables.",
     system_message=f"You are an expert in extracting structured data from text. You must create two tables, one named overview and the other named products. Here is information about the overview table: {build_overview_prompt} and here is the informaiton on products table: {build_products_prompt}"
 )
 
-
+reviewer_agent = AssistantAgent(
+    name="table reviewer",
+    model_client=client,
+    description="An agent that reviews the tables created by the table creator agent.",
+    system_message=f"""
+    You are an expert in reviewing tabulized data. 
+    You must review the tabulized data from the table creator agent and provide feedback on the accuracy of the data. 
+    The tabulized data must align with the existing data in the database table: XYZ. 
+    In some instances, the underlying text data may not contain invoice data or may have incomplete invoice data. In these cases it may be impossible for the table creator agent to create a table.  
+    If the data is accurate, return 'ACCURATE'. 
+    If the data is inaccurate, return 'INACCURATE' and provide a JSON object with the following keys: overview_feedback and products_feedback. Each key should contain a list of strings that describe the inaccuracies in the respective tables. The overview table contains invoice_date, invoice_number, invoice_company, invoice_total. The products table contains invoice_number, product_name, product_seller, product_amount.
+    If the table creator agent is unable to produce a correct table after three attempts, return 'FAILED' along with a one sentence description of the failure reason. 
+    """)
 
