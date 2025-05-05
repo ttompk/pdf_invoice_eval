@@ -3,9 +3,9 @@
 CREATE TABLE files (
     id SERIAL PRIMARY KEY,
     process_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(20),
+    status VARCHAR(20) NOT NULL,
     fail_reason TEXT
-)
+);
 
 -- invoices table records each invoice received
 CREATE TABLE invoices (
@@ -14,8 +14,8 @@ CREATE TABLE invoices (
     upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     invoice_company VARCHAR(100) NOT NULL,
     invoice_number VARCHAR(50) NOT NULL,
-    invoice_date DATE NOT NULL,
-    invoice_total NUMERIC(10, 2) NOT NULL
+    invoice_date DATE,
+    invoice_total NUMERIC(10, 2),
     FOREIGN KEY (file_id) REFERENCES files(id)
 );
 
@@ -27,6 +27,6 @@ CREATE TABLE products (
     product_name VARCHAR(100) NOT NULL,
     product_seller VARCHAR(100),
     product_amount NUMERIC(10, 2) NOT NULL,
-    FOREIGN KEY (invoice_id) REFERENCES invoice(id)
+    FOREIGN KEY (invoice_id) REFERENCES invoices(id)
 );
 
