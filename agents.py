@@ -10,6 +10,7 @@ from autogen_agentchat.teams import MagenticOneGroupChat
 from autogen_agentchat.ui import Console
 from autogen_ext.models.openai import AzureOpenAIChatCompletionClient, OpenAIChatCompletionClient
 
+import database_utils
 
 load_dotenv(override=True)
 #API_HOST = os.getenv("API_HOST", "github")
@@ -87,6 +88,7 @@ reviewer_agent = AssistantAgent(
 database_agent = AssistantAgent(
     name= "database updater",
     model_client=client,
+    tools = [database_utils.invoice_function],
     description="An agent that updates the database with the tabulized data.",
     system_message=f"""
     You are an expert in updating databases with tabulized data.
@@ -124,4 +126,4 @@ async def run_agents():
     )
     await Console(group_chat.run_stream(task="Extract table data from text and insert into a database."))
 
-    
+asyncio.run(run_agents())

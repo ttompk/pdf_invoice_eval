@@ -3,6 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import os
+import asyncio
 
 load_dotenv()
 DATABASE_URL = os.getenv('DATABASE_URL')
@@ -23,7 +24,7 @@ def get_session():
 
 
 # add invoice overview values to invoice table
-def add_to_invoice_table(
+async def add_to_invoice_table(
         invoice_company: str,
         invoice_number: str,
         invoice_date,
@@ -79,3 +80,20 @@ def add_to_products_table(
         raise e
     finally:
         session.close()
+
+
+# Define the function wrapper
+async def invoice_function(
+        invoice_company: str,
+        invoice_number: str,
+        invoice_date,
+        invoice_total: float) -> str:
+    """
+    Wraps the function call and handles any necessary pre or post processing
+    """
+    try:
+        result = await add_to_invoice_table(invoice_company, invoice_number, invoice_date, invoice_total)
+        return result
+    except Exception as e:
+        return f"An error occurred: {e}"
+
