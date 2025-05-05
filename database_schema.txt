@@ -1,0 +1,32 @@
+-- invoice_status records attempt to process invoice
+-- whether an invoice could be saved or not an invoice id is created
+CREATE TABLE files (
+    id SERIAL PRIMARY KEY,
+    process_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20),
+    fail_reason TEXT
+)
+
+-- invoices table records each invoice received
+CREATE TABLE invoices (
+    id SERIAL PRIMARY KEY,
+    file_id INTEGER NOT NULL,
+    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    invoice_company VARCHAR(100) NOT NULL,
+    invoice_number VARCHAR(50) NOT NULL,
+    invoice_date DATE NOT NULL,
+    invoice_total NUMERIC(10, 2) NOT NULL
+    FOREIGN KEY (file_id) REFERENCES files(id)
+);
+
+-- products table records each element within an invoice
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    invoice_id INTEGER NOT NULL,
+    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    product_name VARCHAR(100) NOT NULL,
+    product_seller VARCHAR(100),
+    product_amount NUMERIC(10, 2) NOT NULL,
+    FOREIGN KEY (invoice_id) REFERENCES invoice(id)
+);
+
