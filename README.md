@@ -33,8 +33,8 @@ Build an AI multi-agent system that:
 ## Workflow Detail
 1. User manually saves an invoice PDF to a "to_be_extracted" directory.
 2. Every night at 12am a bash file is runs a chron job. The bash file moves the files in the directory holding the PDF files to an "in_process" directory. Afterwards it runs a python file which contains the agent program. The agent program is built using the autogen framework. There is a planner agent that controls execution of the following agents. 
-3. Agent 1 is named "pdf_extractor" and is called to open a PDF file from the "in_process" directory, read the contents, and populate a table or tables with the invoice data.
-4. Agent 2 is named "extraction_reviewer" and performs a validation check on Agent 1's work to be certain the extracted data format fits within the existing data structure expectations. This requires Agent 2 to examine the most recent 200 invoices in the database and the invoice PDF. If the extracted data passes Agent 2's review, i.e. the extracted data fit the expected formatting:
+3. Agent 1 is named "table creator" and is called to open a PDF file from the "in_process" directory, read the contents, and populate a table or tables with the invoice data.
+4. Agent 2 is named "table reviewer" and performs a validation check on Agent 1's work to be certain the extracted data format fits within the existing data structure expectations. This requires Agent 2 to examine the most recent 200 invoices in the database and the invoice PDF. If the extracted data passes Agent 2's review, i.e. the extracted data fit the expected formatting:
 - Agent 2 inserts the invoice data into a database table named "invoices"
 - Agent 2 updates the "extraction" database table with the filename, company name (extracted by Agent 1), invoice date, and flag for passing. 
 - Agent 2 moves the invoice PDF to the "completed_extraction" directory. 

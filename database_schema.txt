@@ -4,7 +4,9 @@ CREATE TABLE files (
     id SERIAL PRIMARY KEY,
     process_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20) NOT NULL,
-    fail_reason TEXT
+    fail_reason TEXT,
+    number_invoices INTEGER,
+    number_products INTEGER
 );
 
 -- invoices table records each invoice received
@@ -19,7 +21,7 @@ CREATE TABLE invoices (
     FOREIGN KEY (file_id) REFERENCES files(id)
 );
 
--- products table records each element within an invoice
+-- products table records each product element within an invoice, may be more than one product
 CREATE TABLE products (
     id SERIAL PRIMARY KEY,
     invoice_id INTEGER NOT NULL,
