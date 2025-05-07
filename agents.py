@@ -2,6 +2,7 @@
 import asyncio
 import os
 from dotenv import load_dotenv
+import utils
 
 #import azure.identity
 from autogen_agentchat.agents import AssistantAgent
@@ -10,10 +11,19 @@ from autogen_agentchat.teams import MagenticOneGroupChat
 from autogen_agentchat.ui import Console
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
+
 import database_utils
 
-def build_overview_prompt(raw_text: str, update_overview = ""):
-    # Prompt for the model to identify relevant data for the OVERVIEW table
+def move_files():
+    # Move PDF files to working directory
+    source_dir = "pdf_inbox"
+    working_dir = "in_process"
+
+    utils.move_pdf_files(source_dir, working_dir)
+
+
+
+''' reference prompts before changes
     overview_prompt = f"""
     The text comes from a PDF invoice so formatting may be inconsistent.
     Your job is to record the overall details about the invoice, not about the individual products.
@@ -28,8 +38,6 @@ def build_overview_prompt(raw_text: str, update_overview = ""):
     """
     return overview_prompt
 
-def build_products_prompt(raw_text: str, update_products= ""):
-     # Prompt for the model to identify relevant data for the PRODUCTS table
     product_prompt = f""" 
     The text comes from a PDF invoice so formatting may be inconsistent.
     Your job is to record the details about the products in the invoice and are not interested in the overall invoice details.
@@ -43,10 +51,41 @@ def build_products_prompt(raw_text: str, update_products= ""):
     There may be multiple products in the text. 
     Provide the data in a JSON format with keys: invoice_number, product_name, product_seller, product_amount. Invoice_number should be repeated for each product in the JSON output. 
     """
-    return product_prompt
 
-def extract_text_from_pdf():
-    pass
+
+
+'''
+
+
+
+def build_overview_prompt(raw_text: str, update_overview = ""):
+    # Prompt for the model to identify relevant data for the OVERVIEW table
+    overview_prompt = f"""
+    The text comes from a PDF invoice so formatting may be inconsistent.
+    Your job is to record the overall details about the invoice, not about the individual products.
+    Extract the following details from the text:
+    - Invoice Date
+    - Invoice Number
+    - Invoice Company
+    - Invoice Total
+    Provide the data in a JSON format with keys: invoice_date, invoice_number, invoice_company, invoice_total.
+    """
+    return overview_prompt
+
+def build_products_prompt(raw_text: str, update_products= ""):
+     # Prompt for the model to identify relevant data for the PRODUCTS table
+    product_prompt = f""" 
+    The text comes from a PDF invoice so formatting may be inconsistent.
+    Your job is to record the details about the products in the invoice and are not interested in the overall invoice details.
+    Extract the following details from the text:
+    - Invoice Number
+    - Product Name
+    - Product Seller
+    - Price of Product
+    There may be multiple products in the text. 
+    Provide the data in a JSON format with keys: invoice_number, product_name, product_seller, product_amount. Invoice_number should be repeated for each product in the JSON output. 
+    """
+    return product_prompt
 
 
 async def run_agents(client, table_agent, reviewer_agent):
@@ -63,6 +102,8 @@ async def run_agents(client, table_agent, reviewer_agent):
 
     # run the team, send to console
     await Console(agent_team.run_stream(task="Extract table data from text and insert into a database."))
+
+    await client.close()
 
 
 async def main() -> None:
@@ -85,15 +126,20 @@ async def main() -> None:
     table_agent = AssistantAgent(
         name="table_creator",
         model_client=client,
+        tools = [utils.extract_tool],
         description="A worker that extracts values from text to build tables.",
         system_message=f"""
         You are an expert in extracting structured data from text. 
-        You must create two tables, one named overview and the other named products.
-        Here is information about the overview table: {build_overview_prompt()} and here is the information on products table: {build_products_prompt()}.
+        There are PDF files in the "in_process" directory. 
+        These PDF files may contain invoice data sent from another company to you.
+        For each file you must extract the text from the PDF file using the extract_tool. 
+        Using the extracted text, create two tables, one named "overview" and the other named "products".
+        Here is information on how to build the overview table: {build_overview_prompt()} and here is the information on how to build the products table: {build_products_prompt()}.
         These tables will be submitted to the table reviewer agent for validation.
         If you are unable to extract the data from the text, return 'FAILED' along with a one sentence description of the failure reason.
-        You will repeat the process of data extraction for each file in the "in_process" directory following direction from the summary agent.
         """ )
+    
+    # You will repeat the process of data extraction for each file in the "in_process" directory following direction from the summary agent.
 
     # define the table reviewer agent
     reviewer_agent = AssistantAgent(
@@ -103,7 +149,7 @@ async def main() -> None:
         system_message=f"""
         You are an expert in reviewing tabulized data. 
         You must review the tabulized data from the table_creator agent and provide feedback on the accuracy of the data. 
-        The tabulized data must align with the existing data in the database table: XYZ, if any exist. 
+        The tabulized data must align with the existing data in the database table: invoices, if any data exist. 
         In some instances, the underlying text data may not contain invoice data or may have incomplete invoice data. In these cases it may be impossible for the table creator agent to create a table.  
         The invoices table should contain the following extracted data: company providing the invoice, invoice number, date of the invoice, and the invoice total for all products. 
         The prodcuts table should contain the following extracted data: product names, product sellers and product_amounts.
@@ -113,6 +159,7 @@ async def main() -> None:
         After the tables have been processed, you can respond with TERMINATE.
         """)
     '''This failure reason should be provided to the database updater agent.'''
+
 
     # run the agent 
     run_agents(client, table_agent, reviewer_agent)
