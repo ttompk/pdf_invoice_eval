@@ -23,4 +23,30 @@ def extract_text_from_pdf(file_path):
 
 
 
+def to_working_dir(source_dir, target_dir):
+    '''Searches the pdf_inbox directory. If there are files, moves to in_process directory for agent use'''
+    
+    n_files_source = len(os.listdir(source_dir))
+
+    try:
+        if n_files_source > 0:   # are there files?
+            for file_name in os.listdir(source_dir):   # move files from source to target
+                move_file(source_dir, target_dir, file_name)
+
+            n_files_target = len(os.listdir(target_dir))
+            if n_files_target == n_files_source:
+                log_value = f"Files in inbox: {n_files_source}. Moved to working dir: {n_files_target}. "
+                return True
+        
+        else:  # when there are no files in the inbox
+            # make log entry
+            return False
+            
+    except:
+        # error moving files.
+        error_msg = "There was an error accessing or moving the PDF files."
+        print(error_msg)
+        return False
+    
+
 extract_tool = FunctionTool( extract_text_from_pdf, description = "Returns text from a PDF file.")

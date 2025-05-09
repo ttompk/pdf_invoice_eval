@@ -3,6 +3,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 import utils
+#import database_utils
 
 #import azure.identity
 from autogen_agentchat.agents import AssistantAgent
@@ -12,14 +13,10 @@ from autogen_agentchat.ui import Console
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 
-import database_utils
-
-def move_files():
-    # Move PDF files to working directory
-    source_dir = "pdf_inbox"
-    working_dir = "in_process"
-
-    utils.move_pdf_files(source_dir, working_dir)
+# Move PDF files to working directory
+source_dir = "pdf_inbox"
+working_dir = "in_process"
+utils.to_working_dir(source_dir, working_dir)
 
 
 
@@ -52,11 +49,7 @@ def move_files():
     Provide the data in a JSON format with keys: invoice_number, product_name, product_seller, product_amount. Invoice_number should be repeated for each product in the JSON output. 
     """
 
-
-
 '''
-
-
 
 def build_overview_prompt(raw_text: str, update_overview = ""):
     # Prompt for the model to identify relevant data for the OVERVIEW table
@@ -89,10 +82,18 @@ def build_products_prompt(raw_text: str, update_products= ""):
 
 
 async def run_agents(client, table_agent, reviewer_agent):
+    ''' Creates the agent workflow and runs the agents.
+    Inputs:
+    - client: OpenAIChatCompletionClient
+    - table_agent: autogen AssistantAgent
+    - reviewer_agent: autogen AssistantAgent
+    Outputs:
+    - Console output of the agent workflow   
+    '''
 
     termination = TextMentionTermination("TERMINATE")   # will need to change who terminates as the app develops
     
-    # define agent team
+    # define agent team and scheme
     agent_team = MagenticOneGroupChat(
         [table_agent, reviewer_agent],  # add in database_agent, summary_agent after testing
         max_turns = 10,   # arbitrarily chosen
