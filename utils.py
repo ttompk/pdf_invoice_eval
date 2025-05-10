@@ -1,26 +1,30 @@
 import PyPDF2  # build a tool
 import os
 import shutil
-from autogen_core.tools import FunctionTool
 
 
 def move_file(current_dir, target_dir, file_name):
-        '''
-        Move pdf file to another directory
-        '''
-        #shutil.copy2(os.path.join(current_dir, file_name), target_dir)
-        shutil.move(os.path.join(current_dir, file_name), target_dir)
+	'''
+	Move pdf file to another directory
+	'''
+	#shutil.copy2(os.path.join(current_dir, file_name), target_dir)
+	shutil.move(os.path.join(current_dir, file_name), target_dir)
 
 
-def extract_text_from_pdf(file_path):
-        """Extracts text from a PDF file."""
-        text = ""
-        with open(file_path, 'rb') as file:
-            reader = PyPDF2.PdfReader(file)
-            for page in reader.pages:
-                text += page.extract_text()
-        return text
-
+def extract_text_from_pdf(filename: str):
+	"""
+	Extracts text from a PDF file.
+    Inputs:
+    	- filename: pdf file name
+    Outputs:
+		- str. The text extracted from the pdf
+    """
+	text = ""
+	with open(filename, 'rb') as file:
+		reader = PyPDF2.PdfReader(file)
+		for page in reader.pages:
+			text += page.extract_text()
+	return text
 
 
 def to_working_dir(source_dir, target_dir):
@@ -49,4 +53,13 @@ def to_working_dir(source_dir, target_dir):
         return False
     
 
-extract_tool = FunctionTool( extract_text_from_pdf, description = "Returns text from a PDF file.")
+
+def get_file_list(target_dir):
+	'''Returns a list of the file names in the working directory'''
+	
+	file_list = []
+	for file_name in os.listdir(target_dir):
+		if file_name.endswith('.pdf'):
+			file_list.append(file_name)
+	return ", ".join(file_list)
+

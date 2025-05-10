@@ -11,13 +11,16 @@ from autogen_agentchat.conditions import TextMentionTermination
 from autogen_agentchat.teams import MagenticOneGroupChat
 from autogen_agentchat.ui import Console
 from autogen_ext.models.openai import OpenAIChatCompletionClient
+from autogen_core.tools import FunctionTool
 
 
 # Move PDF files to working directory
-source_dir = "pdf_inbox"
-working_dir = "in_process"
+source_dir = "PDF_files/pdf_inbox"
+working_dir = "PDF_files/in_process"
 utils.to_working_dir(source_dir, working_dir)
 
+
+extract_tool = FunctionTool( utils.extract_text_from_pdf, description = "Returns text from a PDF file.")
 
 
 ''' reference prompts before changes
@@ -51,7 +54,8 @@ utils.to_working_dir(source_dir, working_dir)
 
 '''
 
-def build_overview_prompt(raw_text: str, update_overview = ""):
+#def build_overview_prompt(raw_text: str, update_overview = ""):
+def build_overview_prompt():
     # Prompt for the model to identify relevant data for the OVERVIEW table
     overview_prompt = f"""
     The text comes from a PDF invoice so formatting may be inconsistent.
@@ -65,7 +69,8 @@ def build_overview_prompt(raw_text: str, update_overview = ""):
     """
     return overview_prompt
 
-def build_products_prompt(raw_text: str, update_products= ""):
+#def build_products_prompt(raw_text: str, update_products= ""):
+def build_products_prompt():
      # Prompt for the model to identify relevant data for the PRODUCTS table
     product_prompt = f""" 
     The text comes from a PDF invoice so formatting may be inconsistent.
@@ -81,15 +86,81 @@ def build_products_prompt(raw_text: str, update_products= ""):
     return product_prompt
 
 
-async def run_agents(client, table_agent, reviewer_agent):
-    ''' Creates the agent workflow and runs the agents.
-    Inputs:
-    - client: OpenAIChatCompletionClient
-    - table_agent: autogen AssistantAgent
-    - reviewer_agent: autogen AssistantAgent
-    Outputs:
-    - Console output of the agent workflow   
+async def main() -> None:
+    
+    # env variables
+    load_dotenv(override=True)
+    #API_HOST = os.getenv("API_HOST", "github")
+    #BASE_URL = os.getenv("BASE_URL")
+    MODEL_NAME = os.getenv("MODEL_NAME")
+    #API_KEY = os.getenv("GITHUB_TOKEN")
+    API_KEY = os.getenv("OPENAI_API_KEY")
+
+    # use openai via github 
+    client = OpenAIChatCompletionClient(
+        model=MODEL_NAME, 
+        api_key=API_KEY, 
+        #base_url=BASE_URL,
+        temperature=0.2,
+        max_tokens=4000)
+
+    # define the table creator agent
+    table_agent = AssistantAgent(
+        name="table_creator",
+        model_client=client,
+        tools = [utils.extract_text_from_pdf],
+        description="A worker that extracts values from text to build tables.",
+        system_message=f"""
+        You are an expert in extracting structured data from text. 
+        There are PDF files in the "PDF_files/in_process" directory named {utils.get_file_list(working_dir)}.
+        These PDF files contain invoice data sent from another company to you.
+        Using the extracted text, create only two tables, one named "overview" and the other named "products".
+        Here is information on how to build the overview table: {build_overview_prompt()} and here is the information on how to build the products table: {build_products_prompt()}.
+        If you are unable to extract the data from the text, return 'FAILED' along with a one sentence description of the failure reason.
+        """ )
+    
+    # You will repeat the process of data extraction for each file in the "in_process" directory following direction from the summary agent.
+
+    # define the table reviewer agent
+    reviewer_agent = AssistantAgent(
+        name="table_reviewer",
+        model_client=client,
+        description="A worker that reviews the tables created by the table_creator agent.",
+        system_message=f"""
+        You are an expert in reviewing tabulized data. 
+        You must review the tabulized data from the table_creator agent and provide feedback on the accuracy of the data. 
+        In some instances, the underlying text data may not contain invoice data or may have incomplete invoice data. In these cases it may be impossible for the table creator agent to create a table.  
+        Table_creator agent should only create two tables, one named "overview" and the other named "products".
+        Info on the overview table structure: {build_overview_prompt()}
+        Info on the products table structure: {build_products_prompt()}
+        If the data is structured accurately, return 'ACCURATE'. 
+        If the data is not structured accurately, return 'INACCURATE' and return a short description of the failure reason to provide feedback to the table creator agent.
+        If the table_creator agent is unable to produce a correct table after three attempts, return 'FAILED' along with a one sentence description of the failure reason. 
+        After the tables have been processed, you can respond with TERMINATE.
+        """)
+    '''This failure reason should be provided to the database updater agent.'''
+
+
     '''
+    database_agent = AssistantAgent(
+        name= "database_updater",
+        model_client=client,
+        tools = [database_utils.invoice_function],
+        description="An agent that updates the database with the tabulized data.",
+        system_message=f"""
+        You are an expert in updating databases with tabulized data.
+        You must wait for the table_reviewer agent to provide feedback on the accuracy of the tabulized data created by the table_creator agent.
+        You must update the database tables 'files', 'invoices', and 'products' with the tabulized data created by the table creator agent.
+        Start with the 'files' table and then update the 'invoices' table and finally the 'products' table, if applicable.
+        The 'files' table should contain the status of 'processed' or 'failed' for each PDF file, a failure reason if applicable, and a count of the invoices and products found in the PDF file.
+        There will always be one 'files' database entry for each PDF file analyzed by the table creator agent regardless of whether the invoices and products data is accurate or inaccurate.
+        In some cases the 'invoices' and 'products' database entries may not exist and this is acceptable.
+        If the invoice table data is ultimately deemed INACCURATE by the table reviewer agent, you must not update the database.
+        If the products data is deemed INACCURATE by the table reviewer agent, you also must not update the database.
+        For any particular file, if there is a failure in updating the invoices or products database tables rollback the previous database entries associated with that file and return 'FAILED' along with a one sentence description of the failure reason. 
+        """ )
+    '''
+
 
     termination = TextMentionTermination("TERMINATE")   # will need to change who terminates as the app develops
     
@@ -102,91 +173,17 @@ async def run_agents(client, table_agent, reviewer_agent):
     )
 
     # run the team, send to console
-    await Console(agent_team.run_stream(task="Extract table data from text and insert into a database."))
+    await Console(agent_team.run_stream(
+        task=f'''Extract invoice data from text, review its accuracy, and return tables in JSON format.
+        There are PDF files in the "PDF_files/in_process" directory named {utils.get_file_list(working_dir)}.
+        '''))
 
     await client.close()
 
 
-async def main() -> None:
-    
-    # env variables
-    load_dotenv(override=True)
-    #API_HOST = os.getenv("API_HOST", "github")
-    BASE_URL = os.getenv("BASE_URL")
-    MODEL_NAME = os.getenv("MODEL_NAME")
-    API_KEY = os.getenv("GITHUB_TOKEN")
-
-    # use openai via github 
-    client = OpenAIChatCompletionClient(
-        model=MODEL_NAME, 
-        api_key=API_KEY, 
-        base_url=BASE_URL,
-        temperature=0.2)
-
-    # define the table creator agent
-    table_agent = AssistantAgent(
-        name="table_creator",
-        model_client=client,
-        tools = [utils.extract_tool],
-        description="A worker that extracts values from text to build tables.",
-        system_message=f"""
-        You are an expert in extracting structured data from text. 
-        There are PDF files in the "in_process" directory. 
-        These PDF files may contain invoice data sent from another company to you.
-        For each file you must extract the text from the PDF file using the extract_tool. 
-        Using the extracted text, create two tables, one named "overview" and the other named "products".
-        Here is information on how to build the overview table: {build_overview_prompt()} and here is the information on how to build the products table: {build_products_prompt()}.
-        These tables will be submitted to the table reviewer agent for validation.
-        If you are unable to extract the data from the text, return 'FAILED' along with a one sentence description of the failure reason.
-        """ )
-    
-    # You will repeat the process of data extraction for each file in the "in_process" directory following direction from the summary agent.
-
-    # define the table reviewer agent
-    reviewer_agent = AssistantAgent(
-        name="table_reviewer",
-        model_client=client,
-        description="An agent that reviews the tables created by the table_creator agent.",
-        system_message=f"""
-        You are an expert in reviewing tabulized data. 
-        You must review the tabulized data from the table_creator agent and provide feedback on the accuracy of the data. 
-        The tabulized data must align with the existing data in the database table: invoices, if any data exist. 
-        In some instances, the underlying text data may not contain invoice data or may have incomplete invoice data. In these cases it may be impossible for the table creator agent to create a table.  
-        The invoices table should contain the following extracted data: company providing the invoice, invoice number, date of the invoice, and the invoice total for all products. 
-        The prodcuts table should contain the following extracted data: product names, product sellers and product_amounts.
-        If the data is accurate, return 'ACCURATE'. 
-        If the data is inaccurate, return 'INACCURATE' and return a short description of the failure reason to provide feedback to the table creator agent.
-        If the table_creator agent is unable to produce a correct table after three attempts, return 'FAILED' along with a one sentence description of the failure reason. 
-        After the tables have been processed, you can respond with TERMINATE.
-        """)
-    '''This failure reason should be provided to the database updater agent.'''
-
-
-    # run the agent 
-    run_agents(client, table_agent, reviewer_agent)
 
 
 
-
-'''
-database_agent = AssistantAgent(
-    name= "database_updater",
-    model_client=client,
-    tools = [database_utils.invoice_function],
-    description="An agent that updates the database with the tabulized data.",
-    system_message=f"""
-    You are an expert in updating databases with tabulized data.
-    You must wait for the table reviewer agent to provide feedback on the accuracy of the tabulized data created by the table creator agent.
-    You must update the database tables 'files', 'invoices', and 'products' with the tabulized data created by the table creator agent.
-    Start with the 'files' table and then update the 'invoices' table and finally the 'products' table, if applicable.
-    The 'files' table should contain the status of 'processed' or 'failed' for each PDF file, a failure reason if applicable, and a count of the invoices and products found in the PDF file.
-    There will always be one 'files' database entry for each PDF file analyzed by the table creator agent regardless of whether the invoices and products data is accurate or inaccurate.
-    In some cases the 'invoices' and 'products' database entries may not exist and this is acceptable.
-    If the invoice table data is ultimately deemed INACCURATE by the table reviewer agent, you must not update the database.
-    If the products data is deemed INACCURATE by the table reviewer agent, you also must not update the database.
-    For any particular file, if there is a failure in updating the invoices or products database tables rollback the previous database entries associated with that file and return 'FAILED' along with a one sentence description of the failure reason. 
-    """ )
-'''
 '''
 summary_agent = AssistantAgent(
     name="summary_agent",
@@ -205,4 +202,4 @@ summary_agent = AssistantAgent(
 
 
 if __name__ == "__main__":
-    asyncio.run(run_agents())
+    asyncio.run(main())
