@@ -3,7 +3,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 import utils
-#import database_utils
+import database_utils
 
 #import azure.identity
 from autogen_agentchat.agents import AssistantAgent
@@ -19,8 +19,14 @@ source_dir = "PDF_files/pdf_inbox"
 working_dir = "PDF_files/in_process"
 utils.to_working_dir(source_dir, working_dir)
 
+# instantiate the database updater class
+db = database_utils.db_update()
 
+# wrapper for the functions
 extract_tool = FunctionTool( utils.extract_text_from_pdf, description = "Returns text from a PDF file.")
+invoices_table_tool = FunctionTool( db.update_invoices_table, description = "Updates the invoices table with the invoice data.")
+products_table_tool = FunctionTool( db.update_products_table, description = "Updates the products table with the product data.")
+files_table_tool = FunctionTool( db.update_files_table, description = "Updates the files table with the file data.")
 
 
 ''' reference prompts before changes
@@ -54,6 +60,8 @@ extract_tool = FunctionTool( utils.extract_text_from_pdf, description = "Returns
 
 '''
 
+
+
 #def build_overview_prompt(raw_text: str, update_overview = ""):
 def build_overview_prompt():
     # Prompt for the model to identify relevant data for the OVERVIEW table
@@ -85,6 +93,22 @@ def build_products_prompt():
     """
     return product_prompt
 
+def build_files_prompt():
+    # Prompt for the model to identify relevant data for the FILES table
+    files_prompt = f"""
+    The text comes from a PDF invoice so formatting may be inconsistent.
+    Your job is to record the file name, whether the file was processed successfully or not, the total number of invoices in the file, and the total number of products in the file.
+    The determination of whether a file was processed succussfully or not will be provided by the table reviewer agent or the database updater agent and stored in the status field.
+    Build a tale with the following columns:
+    - filename: name of the PDF file
+    - status: status of the file processing. Possible values are: SUCCESS, FAILED
+    - fail_reason: one sentence description of the failure reason if the status is FAILED
+    - number_invoices: Total number of invoices in the file
+    - number_products: Total number of products from all invoices in the file
+    Provide the data in a JSON format.
+    """
+    return files_prompt
+
 
 async def main() -> None:
     
@@ -104,6 +128,11 @@ async def main() -> None:
         temperature=0.2,
         max_tokens=4000)
 
+
+    """
+    DEFINE AGENTS
+    """
+
     # define the table creator agent
     table_agent = AssistantAgent(
         name="table_creator",
@@ -114,13 +143,11 @@ async def main() -> None:
         You are an expert in extracting structured data from text. 
         There are PDF files in the "PDF_files/in_process" directory named {utils.get_file_list(working_dir)}.
         These PDF files contain invoice data sent from another company to you.
-        Using the extracted text, create only two tables, one named "overview" and the other named "products".
+        Using the extracted text, create only two tables: one named "overview" and one named "products". 
         Here is information on how to build the overview table: {build_overview_prompt()} and here is the information on how to build the products table: {build_products_prompt()}.
         If you are unable to extract the data from the text, return 'FAILED' along with a one sentence description of the failure reason.
         """ )
     
-    # You will repeat the process of data extraction for each file in the "in_process" directory following direction from the summary agent.
-
     # define the table reviewer agent
     reviewer_agent = AssistantAgent(
         name="table_reviewer",
@@ -135,32 +162,33 @@ async def main() -> None:
         Info on the products table structure: {build_products_prompt()}
         If the data is structured accurately, return 'ACCURATE'. 
         If the data is not structured accurately, return 'INACCURATE' and return a short description of the failure reason to provide feedback to the table creator agent.
-        If the table_creator agent is unable to produce a correct table after three attempts, return 'FAILED' along with a one sentence description of the failure reason. 
+        If the table_creator agent is unable to produce a correct table after three attempts, return 'FAILED' along with the one sentence description of the failure reason. 
         After the tables have been processed, you can respond with TERMINATE.
         """)
-    '''This failure reason should be provided to the database updater agent.'''
 
-
-    '''
+    # define the database updater agent
     database_agent = AssistantAgent(
         name= "database_updater",
         model_client=client,
-        tools = [database_utils.invoice_function],
+        tools = [invoices_table_tool, products_table_tool, files_table_tool],
         description="An agent that updates the database with the tabulized data.",
         system_message=f"""
         You are an expert in updating relational databases with tabulized data.
         You must update the database tables 'files', 'invoices', and 'products' with the tabulized data created by the table creator agent.
-        Start with the 'files' table and then update the 'invoices' table and finally the 'products' table, if applicable.
-        There will always be one 'files' database entry for each PDF file analyzed by the table creator agent regardless of whether the invoices and products data is accurate or inaccurate.
+        Start with the 'invoices' table and then update the 'prodcuts' table and finally the 'files' table, if applicable.
         In some cases the 'invoices' and 'products' database entries may not exist and this is acceptable.
-        If the invoice table data is ultimately deemed INACCURATE by the table reviewer agent, you must not update the database.
-        If the products data is deemed INACCURATE by the table reviewer agent, you also must not update the database.
-        For any particular file, if there is a failure in updating the invoices or products database tables rollback the previous database entries associated with that file and return 'FAILED' along with a one sentence description of the failure reason. 
+        If the invoice table data is ultimately deemed INACCURATE by the table reviewer agent, you must not update the invoices table.
+        If the products data is deemed INACCURATE by the table reviewer agent, you also must not update the products table.
+        There will always be one 'files' database entry for each PDF file analyzed by the table_creator worker regardless if the invoices and products data is accurate or inaccurate.
+        For any particular file, if there is a failure in updating the invoices or products database tables rollback the previous database entries associated with that file and return 'FAILED' along with a one sentence description of the database update failure reason. 
         """ )
-    '''
-'''        You must wait for the table_reviewer agent to provide feedback on the accuracy of the tabulized data created by the table_creator agent.
-'''
 
+
+    """
+    DEFINE WORKFLOW
+    """
+
+    # define the workflow termination condition
     termination = TextMentionTermination("TERMINATE")   # will need to change who terminates as the app develops
     
     # define agent team and scheme
@@ -178,8 +206,6 @@ async def main() -> None:
         '''))
 
     await client.close()
-
-
 
 
 
