@@ -148,11 +148,9 @@ async def main() -> None:
         tools = [database_utils.invoice_function],
         description="An agent that updates the database with the tabulized data.",
         system_message=f"""
-        You are an expert in updating databases with tabulized data.
-        You must wait for the table_reviewer agent to provide feedback on the accuracy of the tabulized data created by the table_creator agent.
+        You are an expert in updating relational databases with tabulized data.
         You must update the database tables 'files', 'invoices', and 'products' with the tabulized data created by the table creator agent.
         Start with the 'files' table and then update the 'invoices' table and finally the 'products' table, if applicable.
-        The 'files' table should contain the status of 'processed' or 'failed' for each PDF file, a failure reason if applicable, and a count of the invoices and products found in the PDF file.
         There will always be one 'files' database entry for each PDF file analyzed by the table creator agent regardless of whether the invoices and products data is accurate or inaccurate.
         In some cases the 'invoices' and 'products' database entries may not exist and this is acceptable.
         If the invoice table data is ultimately deemed INACCURATE by the table reviewer agent, you must not update the database.
@@ -160,7 +158,8 @@ async def main() -> None:
         For any particular file, if there is a failure in updating the invoices or products database tables rollback the previous database entries associated with that file and return 'FAILED' along with a one sentence description of the failure reason. 
         """ )
     '''
-
+'''        You must wait for the table_reviewer agent to provide feedback on the accuracy of the tabulized data created by the table_creator agent.
+'''
 
     termination = TextMentionTermination("TERMINATE")   # will need to change who terminates as the app develops
     
