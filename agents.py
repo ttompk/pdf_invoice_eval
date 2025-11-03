@@ -193,7 +193,7 @@ async def main() -> None:
     
     # define agent team and scheme
     agent_team = MagenticOneGroupChat(
-        [table_agent, reviewer_agent],  # add in database_agent, summary_agent after testing
+        [table_agent, reviewer_agent, database_agent],  # add in summary_agent after testing
         max_turns = 10,   # arbitrarily chosen
         termination_condition=termination,
         model_client=client,
@@ -201,7 +201,7 @@ async def main() -> None:
 
     # run the team, send to console
     await Console(agent_team.run_stream(
-        task=f'''Extract invoice data from text, review its accuracy, and return tables in JSON format.
+        task=f'''Extract invoice data from text, review its accuracy, and return tables in JSON format. Id tablesa re accurate then update the database with the tabulized data.
         There are PDF files in the "PDF_files/in_process" directory named {utils.get_file_list(working_dir)}.
         '''))
 

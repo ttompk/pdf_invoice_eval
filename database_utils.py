@@ -40,9 +40,9 @@ class db_update:
     # add invoice overview values to invoice table
     def update_invoices_table(
             self,
-            invoice_company: str,
+            invoice_date: str,
             invoice_number: str,
-            invoice_date,
+            invoice_company: str,
             invoice_total: float):
         session = self.get_session()
         try: 
