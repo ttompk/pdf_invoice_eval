@@ -1,3 +1,7 @@
+''' 
+This is the main file for executing the multi-agent workflow.
+'''
+
 # source: https://github.com/Azure-Samples/python-ai-agent-frameworks-demos/blob/main/examples/autogen_magenticone.py
 import asyncio
 import os
@@ -175,10 +179,8 @@ async def main() -> None:
         system_message=f"""
         You are an expert in updating relational databases with tabulized data.
         You must update the database tables 'files', 'invoices', and 'products' with the tabulized data created by the table creator agent.
-        Start with the 'invoices' table and then update the 'prodcuts' table and finally the 'files' table, if applicable.
+        Start with the 'invoices' table and then update the 'products' table and finally the 'files' table, if applicable.
         In some cases the 'invoices' and 'products' database entries may not exist and this is acceptable.
-        If the invoice table data is ultimately deemed INACCURATE by the table reviewer agent, you must not update the invoices table.
-        If the products data is deemed INACCURATE by the table reviewer agent, you also must not update the products table.
         There will always be one 'files' database entry for each PDF file analyzed by the table_creator worker regardless if the invoices and products data is accurate or inaccurate.
         For any particular file, if there is a failure in updating the invoices or products database tables rollback the previous database entries associated with that file and return 'FAILED' along with a one sentence description of the database update failure reason. 
         """ )
@@ -201,7 +203,7 @@ async def main() -> None:
 
     # run the team, send to console
     await Console(agent_team.run_stream(
-        task=f'''Extract invoice data from text, review its accuracy, and return tables in JSON format. Id tablesa re accurate then update the database with the tabulized data.
+        task=f'''Extract invoice data from text, review its accuracy, and return tables in JSON format. If tables pass inspection then update the database with the tabulized data.
         There are PDF files in the "PDF_files/in_process" directory named {utils.get_file_list(working_dir)}.
         '''))
 
