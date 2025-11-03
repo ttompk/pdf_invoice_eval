@@ -26,7 +26,7 @@ Build an AI multi-agent system that:
 - Agent 1: Views the invoice PDF and reasons about the PDF and returns a pre-specified formatted table with the account details, invoice date, and invoice amount. 
 - Agent 2: Reviews the formatted data passed by Agent 1. Agent 2 decides whether the data as formatted by Agent 1 makes sense to enter into a pre-specified database table. If it approves of the insert it then enters the invoice data into the database table. If agent 2 does not approve it will ask Agent 2 to repeat the PDF data extraction. If the second extraction fails, Agent 2 will log the failure into a database table and the file will be moved to another directory for user evaluation. 
 - Agent 3: Compares the newly extracted values to the expected compensation values and flags any potential issues (if any). Issues include being paid less than or more than the expected value. Agent 2 then enters a value into the database table signifiying there was or was not a difference between the new extracted invoice value and the expected value. 
-- Agent 3: After all the PDF files have been ran through and the data insrted into the database, Agent 4 will review the newly entered data (and those PDF files it could not extract), and will write a brief report on the outcome. This report should list any PDF fils that Agent 1 could not extract data from, any PDF ivoice data which was extracted and enterded into the database, and if there were any differences between the extracted invoice values and the expected values. If there are differences, Agent 3 will provide an explanation for each issue which can be copied by the user to send via email to the apprioriate service provider. This explanation should describe the invoice and discrepancy and request a correction to the invoice amount. 
+- Agent 3: After all the PDF files have been ran through and the data inserted into the database, Agent 4 will review the newly entered data (and those PDF files it could not extract), and will write a brief report on the outcome. This report should list any PDF fils that Agent 1 could not extract data from, any PDF ivoice data which was extracted and entered into the database, and if there were any differences between the extracted invoice values and the expected values. If there are differences, Agent 3 will provide an explanation for each issue which can be copied by the user to send via email to the apprioriate service provider. This explanation should describe the invoice and discrepancy and request a correction to the invoice amount. 
 
 
 
@@ -50,6 +50,8 @@ Build an AI multi-agent system that:
 - compare the invoices in the "expected_invoices" table with the newly entered invoices. If there are any differences between the newly extracted invoice dollar amounts and the expected dollar amounts then the agent will provide an explanation for each conflicting invoice. Each explaination should be two to three sentences. This report should be emailed to the user who will copy and send via email to the apprioriate service provider. This explanation should describe the invoice, the invoice discrepancy, and request a correction to the invoice amount. 
 
 ### Required Infrastructure
+- python version = 3.12.0
+- conda env = autogen
 - database = postgres
 - email = gmail
 - multi-agent framework = autogen
@@ -58,3 +60,4 @@ Build an AI multi-agent system that:
 - store database and LLM connection strings in .env file (add to .gitignore)
 - would prefer to use model context protocol to connect the database and email
 
+## How to run the program  
